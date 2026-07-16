@@ -6,6 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
+export interface TimelineEntry {
+  id: string;
+  event: string;
+  detail: string;
+  timestamp: Date;
   status: string;
 }

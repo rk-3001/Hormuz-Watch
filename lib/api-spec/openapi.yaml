@@ -3,20 +3,34 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: HormuzWatch API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: signals
+    description: Geopolitical risk signal operations
+  - name: risk
+    description: Corridor risk score operations
+  - name: scenarios
+    description: Scenario simulation operations
+  - name: recommendations
+    description: Procurement recommendation operations
+  - name: reserves
+    description: Strategic reserve operations
+  - name: timeline
+    description: Response timeline and audit log
+  - name: anthropic
+    description: Anthropic AI chat operations
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +38,302 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /signals:
+    get:
+      operationId: listSignals
+      tags: [signals]
+      summary: List geopolitical risk signals
+      parameters:
+        - name: corridor
+          in: query
+          schema:
+            type: string
+        - name: severity
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of signals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RiskSignal"
+
+  /risk-scores:
+    get:
+      operationId: getRiskScores
+      tags: [risk]
+      summary: Get current corridor risk scores
+      responses:
+        "200":
+          description: Corridor risk scores
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CorridorRisk"
+
+  /risk-scores/refresh:
+    post:
+      operationId: refreshRiskScores
+      tags: [risk]
+      summary: Trigger a random-walk refresh of risk scores
+      responses:
+        "200":
+          description: Updated corridor risk scores
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CorridorRisk"
+
+  /scenarios:
+    get:
+      operationId: listScenarios
+      tags: [scenarios]
+      summary: List available scenarios
+      responses:
+        "200":
+          description: List of scenarios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Scenario"
+
+  /scenarios/{id}/run:
+    post:
+      operationId: runScenario
+      tags: [scenarios]
+      summary: Run a scenario simulation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Scenario result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScenarioResult"
+        "404":
+          description: Scenario not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /recommendations/{scenarioId}:
+    get:
+      operationId: getRecommendations
+      tags: [recommendations]
+      summary: Get ranked procurement recommendations for a scenario
+      parameters:
+        - name: scenarioId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Ranked procurement options
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProcurementOption"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /reserves:
+    get:
+      operationId: getReserves
+      tags: [reserves]
+      summary: Get current SPR reserve status
+      parameters:
+        - name: disruptionDays
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Reserve status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReserveStatus"
+
+  /timeline:
+    get:
+      operationId: getTimeline
+      tags: [timeline]
+      summary: Get response timeline / audit log entries
+      responses:
+        "200":
+          description: Timeline entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TimelineEntry"
+
+  /assistant/chat:
+    post:
+      operationId: assistantChat
+      tags: [anthropic]
+      summary: Send a chat message to the AI assistant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatMessageInput"
+      responses:
+        "200":
+          description: AI response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatResponse"
+
+  /anthropic/conversations:
+    get:
+      operationId: listAnthropicConversations
+      tags: [anthropic]
+      summary: List all conversations
+      responses:
+        "200":
+          description: List of conversations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AnthropicConversation"
+    post:
+      operationId: createAnthropicConversation
+      tags: [anthropic]
+      summary: Create a new conversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnthropicConversationInput"
+      responses:
+        "201":
+          description: Created conversation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnthropicConversation"
+
+  /anthropic/conversations/{id}:
+    get:
+      operationId: getAnthropicConversation
+      tags: [anthropic]
+      summary: Get conversation with messages
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Conversation with messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnthropicConversationWithMessages"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnthropicError"
+    delete:
+      operationId: deleteAnthropicConversation
+      tags: [anthropic]
+      summary: Delete a conversation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnthropicError"
+
+  /anthropic/conversations/{id}/messages:
+    get:
+      operationId: listAnthropicMessages
+      tags: [anthropic]
+      summary: List messages in a conversation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AnthropicMessage"
+    post:
+      operationId: sendAnthropicMessage
+      tags: [anthropic]
+      summary: Send a message and receive an AI response (SSE stream)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnthropicMessageInput"
+      responses:
+        "200":
+          description: SSE stream of assistant response chunks
+          content:
+            text/event-stream: {}
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +344,308 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    RiskSignal:
+      type: object
+      properties:
+        id:
+          type: string
+        corridor:
+          type: string
+        source:
+          type: string
+        headline:
+          type: string
+        severity:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        riskDelta:
+          type: number
+      required:
+        - id
+        - corridor
+        - source
+        - headline
+        - severity
+        - timestamp
+        - riskDelta
+
+    CorridorRisk:
+      type: object
+      properties:
+        corridor:
+          type: string
+        label:
+          type: string
+        currentScore:
+          type: number
+        trend:
+          type: string
+        lastUpdated:
+          type: string
+          format: date-time
+      required:
+        - corridor
+        - label
+        - currentScore
+        - trend
+        - lastUpdated
+
+    Scenario:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        disruptionPercent:
+          type: number
+        affectedCorridor:
+          type: string
+        icon:
+          type: string
+      required:
+        - id
+        - name
+        - description
+        - disruptionPercent
+        - affectedCorridor
+        - icon
+
+    ScenarioResult:
+      type: object
+      properties:
+        scenarioId:
+          type: string
+        scenarioName:
+          type: string
+        refineryRunRateDrop:
+          type: number
+        fuelPriceDeltaPercent:
+          type: number
+        sprDaysRemaining:
+          type: number
+        gdpDragPercent:
+          type: number
+        narrative:
+          type: string
+        generatedAt:
+          type: string
+          format: date-time
+      required:
+        - scenarioId
+        - scenarioName
+        - refineryRunRateDrop
+        - fuelPriceDeltaPercent
+        - sprDaysRemaining
+        - gdpDragPercent
+        - narrative
+        - generatedAt
+
+    ProcurementOption:
+      type: object
+      properties:
+        id:
+          type: string
+        sourceName:
+          type: string
+        region:
+          type: string
+        gradeType:
+          type: string
+        pricePerBarrel:
+          type: number
+        premiumVsBenchmark:
+          type: number
+        tankerAvailability:
+          type: string
+        transitDays:
+          type: integer
+        refineryCompatibilityScore:
+          type: number
+        overallRank:
+          type: integer
+        rationale:
+          type: string
+        scenarioId:
+          type: string
+      required:
+        - id
+        - sourceName
+        - region
+        - gradeType
+        - pricePerBarrel
+        - premiumVsBenchmark
+        - tankerAvailability
+        - transitDays
+        - refineryCompatibilityScore
+        - overallRank
+        - rationale
+        - scenarioId
+
+    DrawdownPoint:
+      type: object
+      properties:
+        day:
+          type: integer
+        projectedDays:
+          type: number
+      required:
+        - day
+        - projectedDays
+
+    ReserveStatus:
+      type: object
+      properties:
+        currentDaysCover:
+          type: number
+        maxCapacityDays:
+          type: number
+        utilizationPercent:
+          type: number
+        disruptionDays:
+          type: integer
+        drawdownSchedule:
+          type: array
+          items:
+            $ref: "#/components/schemas/DrawdownPoint"
+      required:
+        - currentDaysCover
+        - maxCapacityDays
+        - utilizationPercent
+        - disruptionDays
+        - drawdownSchedule
+
+    TimelineEntry:
+      type: object
+      properties:
+        id:
+          type: string
+        event:
+          type: string
+        detail:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: string
+      required:
+        - id
+        - event
+        - detail
+        - timestamp
+        - status
+
+    ChatMessageInput:
+      type: object
+      properties:
+        message:
+          type: string
+        context:
+          type: string
+      required:
+        - message
+
+    ChatResponse:
+      type: object
+      properties:
+        response:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - response
+        - timestamp
+
+    AnthropicConversation:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - createdAt
+
+    AnthropicMessage:
+      type: object
+      properties:
+        id:
+          type: integer
+        conversationId:
+          type: integer
+        role:
+          type: string
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - conversationId
+        - role
+        - content
+        - createdAt
+
+    AnthropicConversationInput:
+      type: object
+      properties:
+        title:
+          type: string
+      required:
+        - title
+
+    AnthropicMessageInput:
+      type: object
+      properties:
+        content:
+          type: string
+      required:
+        - content
+
+    AnthropicConversationWithMessages:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnthropicMessage"
+      required:
+        - id
+        - title
+        - createdAt
+        - messages
+
+    AnthropicError:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
