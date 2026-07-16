@@ -5,10 +5,10 @@ import { logger } from "../lib/logger";
 
 const router = Router();
 
-function getGrokClient(): OpenAI {
-  const apiKey = process.env["GROK_API_KEY"];
-  if (!apiKey) throw new Error("GROK_API_KEY is not set");
-  return new OpenAI({ apiKey, baseURL: "https://api.x.ai/v1" });
+function getGroqClient(): OpenAI {
+  const apiKey = process.env["GROQ_API_KEY"];
+  if (!apiKey) throw new Error("GROQ_API_KEY is not set");
+  return new OpenAI({ apiKey, baseURL: "https://api.groq.com/openai/v1" });
 }
 
 function buildSystemPrompt(): string {
@@ -40,10 +40,10 @@ router.post("/assistant/chat", async (req, res) => {
     return;
   }
   try {
-    const client = getGrokClient();
+    const client = getGroqClient();
     const userContent = context ? `${message}\n\nAdditional context: ${context}` : message;
     const response = await client.chat.completions.create({
-      model: "grok-3",
+      model: "llama-3.3-70b-versatile",
       max_tokens: 1024,
       messages: [
         { role: "system", content: buildSystemPrompt() },

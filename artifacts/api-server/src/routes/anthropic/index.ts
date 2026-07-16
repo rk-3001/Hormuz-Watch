@@ -7,10 +7,10 @@ import { logger } from "../../lib/logger";
 
 const router = Router();
 
-function getGrokClient(): OpenAI {
-  const apiKey = process.env["GROK_API_KEY"];
-  if (!apiKey) throw new Error("GROK_API_KEY is not set");
-  return new OpenAI({ apiKey, baseURL: "https://api.x.ai/v1" });
+function getGroqClient(): OpenAI {
+  const apiKey = process.env["GROQ_API_KEY"];
+  if (!apiKey) throw new Error("GROQ_API_KEY is not set");
+  return new OpenAI({ apiKey, baseURL: "https://api.groq.com/openai/v1" });
 }
 
 // GET /anthropic/conversations
@@ -137,11 +137,11 @@ router.post("/conversations/:id/messages", async (req, res) => {
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
 
-    const client = getGrokClient();
+    const client = getGroqClient();
     let fullResponse = "";
 
     const stream = await client.chat.completions.create({
-      model: "grok-3",
+      model: "llama-3.3-70b-versatile",
       max_tokens: 8192,
       messages: chatMessages,
       stream: true,
