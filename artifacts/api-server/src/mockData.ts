@@ -98,7 +98,65 @@ export const scenarios: Scenario[] = [
   },
 ];
 
-// ─── Procurement Options (per scenario) ──────────────────────────────────────
+// ─── Procurement Source Catalog (one entry per unique source) ────────────────
+export interface ProcurementSource {
+  id: string;
+  sourceName: string;
+  region: string;
+  gradeType: string;
+  basePricePerBarrel: number;
+  baseTransitDays: number;
+  refineryCompatibilityScore: number;
+  corridorExposure: Record<"hormuz" | "redsea" | "persian_gulf", number>; // 0-1
+  rationaleTemplate: string;
+}
+
+export const procurementSources: ProcurementSource[] = [
+  {
+    id: "us-wti", sourceName: "US Gulf Coast WTI", region: "North America", gradeType: "WTI Light Sweet",
+    basePricePerBarrel: 82.00, baseTransitDays: 42, refineryCompatibilityScore: 78,
+    corridorExposure: { hormuz: 0, redsea: 0, persian_gulf: 0 },
+    rationaleTemplate: "Zero exposure to Middle East corridor disruptions. US export infrastructure fully operational.",
+  },
+  {
+    id: "bonny-light", sourceName: "West African Bonny Light", region: "West Africa", gradeType: "Bonny Light",
+    basePricePerBarrel: 80.50, baseTransitDays: 21, refineryCompatibilityScore: 89,
+    corridorExposure: { hormuz: 0, redsea: 0.15, persian_gulf: 0 },
+    rationaleTemplate: "Excellent refinery compatibility with Indian FCCU configuration. Largely insulated from Middle East chokepoints.",
+  },
+  {
+    id: "espo-blend", sourceName: "Russian ESPO Blend", region: "Russia / Far East", gradeType: "ESPO Blend",
+    basePricePerBarrel: 79.80, baseTransitDays: 12, refineryCompatibilityScore: 82,
+    corridorExposure: { hormuz: 0.1, redsea: 0, persian_gulf: 0.1 },
+    rationaleTemplate: "Pacific routing largely bypasses Middle East chokepoints. Discount reflects secondary sanctions risk, not physical exposure.",
+  },
+  {
+    id: "saudi-light", sourceName: "Saudi Arabian Light", region: "Middle East", gradeType: "Arab Light",
+    basePricePerBarrel: 80.20, baseTransitDays: 18, refineryCompatibilityScore: 95,
+    corridorExposure: { hormuz: 0.85, redsea: 0.2, persian_gulf: 0.9 },
+    rationaleTemplate: "Overland pipeline bypass to Yanbu (7.5Mbpd) reduces but does not eliminate Hormuz dependency. Near-perfect refinery compatibility.",
+  },
+  {
+    id: "iraqi-basrah", sourceName: "Iraqi Basrah Light", region: "Middle East", gradeType: "Basrah Light",
+    basePricePerBarrel: 79.40, baseTransitDays: 8, refineryCompatibilityScore: 91,
+    corridorExposure: { hormuz: 0.9, redsea: 0.1, persian_gulf: 0.95 },
+    rationaleTemplate: "High-quality grade match but Basrah terminal exports transit Hormuz directly.",
+  },
+  {
+    id: "brazilian-presalt", sourceName: "Brazilian Pre-salt", region: "South America", gradeType: "Tupi Blend",
+    basePricePerBarrel: 82.80, baseTransitDays: 28, refineryCompatibilityScore: 76,
+    corridorExposure: { hormuz: 0, redsea: 0, persian_gulf: 0 },
+    rationaleTemplate: "Deep-water Atlantic routing, zero Middle East corridor exposure. Long transit is primary downside.",
+  },
+  {
+    id: "ongc-domestic", sourceName: "Domestic ONGC Crude", region: "India (Offshore)", gradeType: "Bombay High",
+    basePricePerBarrel: 78.50, baseTransitDays: 2, refineryCompatibilityScore: 72,
+    corridorExposure: { hormuz: 0, redsea: 0, persian_gulf: 0 },
+    rationaleTemplate: "Zero transit risk. Max output ~820kbpd — insufficient as standalone source but immune to all corridor disruption.",
+  },
+];
+
+// ─── Procurement Scoring (computed at request time) ───────────────────────────
 export interface ProcurementOption {
   id: string;
   sourceName: string;
@@ -111,121 +169,54 @@ export interface ProcurementOption {
   refineryCompatibilityScore: number;
   overallRank: number;
   rationale: string;
-  scenarioId: string;
 }
 
-export const procurementOptions: ProcurementOption[] = [
-  // HORMUZ CLOSURE
-  {
-    id: "p-hc-1", scenarioId: "hormuz-closure", overallRank: 1,
-    sourceName: "US Gulf Coast WTI", region: "North America", gradeType: "WTI Light Sweet",
-    pricePerBarrel: 84.20, premiumVsBenchmark: 3.80, tankerAvailability: "high",
-    transitDays: 42, refineryCompatibilityScore: 78,
-    rationale: "Highest tanker availability with zero Hormuz exposure. Refinery grade adjustment needed but manageable. US export infrastructure fully operational.",
-  },
-  {
-    id: "p-hc-2", scenarioId: "hormuz-closure", overallRank: 2,
-    sourceName: "West African Bonny Light", region: "West Africa", gradeType: "Bonny Light",
-    pricePerBarrel: 82.60, premiumVsBenchmark: 2.20, tankerAvailability: "high",
-    transitDays: 21, refineryCompatibilityScore: 89,
-    rationale: "Excellent refinery compatibility with Indian FCCU configuration. Shorter transit than US. Nigeria NLNG export loading stable.",
-  },
-  {
-    id: "p-hc-3", scenarioId: "hormuz-closure", overallRank: 3,
-    sourceName: "Russian ESPO Blend", region: "Russia / Far East", gradeType: "ESPO Blend",
-    pricePerBarrel: 72.40, premiumVsBenchmark: -7.80, tankerAvailability: "medium",
-    transitDays: 12, refineryCompatibilityScore: 82,
-    rationale: "Significant price discount but secondary sanctions risk. Shortest transit to east coast refineries. Tanker fleet availability constrained by shadow fleet tracking.",
-  },
-  {
-    id: "p-hc-4", scenarioId: "hormuz-closure", overallRank: 4,
-    sourceName: "Saudi Arabian Light (Bypass)", region: "Middle East", gradeType: "Arab Light",
-    pricePerBarrel: 80.10, premiumVsBenchmark: -0.10, tankerAvailability: "medium",
-    transitDays: 18, refineryCompatibilityScore: 95,
-    rationale: "Saudi overland pipeline bypass to Yanbu available (7.5Mbpd). Near-perfect refinery compatibility. Volume allocation subject to Saudi Aramco confirmation.",
-  },
-  {
-    id: "p-hc-5", scenarioId: "hormuz-closure", overallRank: 5,
-    sourceName: "Domestic ONGC Crude", region: "India (Offshore)", gradeType: "Bombay High",
-    pricePerBarrel: 78.50, premiumVsBenchmark: -1.70, tankerAvailability: "high",
-    transitDays: 2, refineryCompatibilityScore: 72,
-    rationale: "Zero transit risk, minimal logistics cost. Bombay High yield profile requires refinery configuration changes. Max output ~820kbpd — insufficient as standalone source.",
-  },
+export function computeProcurementOptions(inputs: ScenarioInputs): ProcurementOption[] {
+  const disruptionFactor = inputs.disruptionPercent / 100;
 
-  // OPEC EMERGENCY CUT
-  {
-    id: "p-oc-1", scenarioId: "opec-emergency-cut", overallRank: 1,
-    sourceName: "US Gulf Coast WTI", region: "North America", gradeType: "WTI Light Sweet",
-    pricePerBarrel: 87.40, premiumVsBenchmark: 4.60, tankerAvailability: "high",
-    transitDays: 42, refineryCompatibilityScore: 78,
-    rationale: "US is outside OPEC+ quota system. Strong spot market availability. Price premium offset by supply security.",
-  },
-  {
-    id: "p-oc-2", scenarioId: "opec-emergency-cut", overallRank: 2,
-    sourceName: "West African Bonny Light", region: "West Africa", gradeType: "Bonny Light",
-    pricePerBarrel: 85.20, premiumVsBenchmark: 2.40, tankerAvailability: "high",
-    transitDays: 21, refineryCompatibilityScore: 89,
-    rationale: "Non-OPEC West African producers can increase output rapidly. Angola recently left OPEC+.",
-  },
-  {
-    id: "p-oc-3", scenarioId: "opec-emergency-cut", overallRank: 3,
-    sourceName: "Russian ESPO Blend", region: "Russia / Far East", gradeType: "ESPO Blend",
-    pricePerBarrel: 74.30, premiumVsBenchmark: -8.50, tankerAvailability: "medium",
-    transitDays: 12, refineryCompatibilityScore: 82,
-    rationale: "Russia outside cut mandate effectively. Deep discount persists. Secondary sanctions monitoring required.",
-  },
-  {
-    id: "p-oc-4", scenarioId: "opec-emergency-cut", overallRank: 4,
-    sourceName: "Brazilian Pre-salt", region: "South America", gradeType: "Tupi Blend",
-    pricePerBarrel: 83.60, premiumVsBenchmark: 0.80, tankerAvailability: "medium",
-    transitDays: 28, refineryCompatibilityScore: 76,
-    rationale: "Petrobras operating outside OPEC+ framework. Deep-water pre-salt output growing. Long transit is primary downside.",
-  },
-  {
-    id: "p-oc-5", scenarioId: "opec-emergency-cut", overallRank: 5,
-    sourceName: "Domestic ONGC Crude", region: "India (Offshore)", gradeType: "Bombay High",
-    pricePerBarrel: 78.50, premiumVsBenchmark: -4.30, tankerAvailability: "high",
-    transitDays: 2, refineryCompatibilityScore: 72,
-    rationale: "Domestic production fully insulated from OPEC+ cuts. Limited incremental volume, but strategic buffer.",
-  },
+  const scored = procurementSources.map((src) => {
+    const exposure = src.corridorExposure[inputs.affectedCorridor];
+    const effectiveDisruption = exposure * disruptionFactor;
 
-  // RED SEA SUSPENSION
-  {
-    id: "p-rs-1", scenarioId: "redsea-suspension", overallRank: 1,
-    sourceName: "West African Bonny Light", region: "West Africa", gradeType: "Bonny Light",
-    pricePerBarrel: 83.80, premiumVsBenchmark: 3.60, tankerAvailability: "high",
-    transitDays: 21, refineryCompatibilityScore: 89,
-    rationale: "Red Sea closure does not affect West Africa routes. Natural cape routing from Nigeria suits east India ports. Best overall option.",
-  },
-  {
-    id: "p-rs-2", scenarioId: "redsea-suspension", overallRank: 2,
-    sourceName: "Saudi Arabian Light (Hormuz)", region: "Middle East", gradeType: "Arab Light",
-    pricePerBarrel: 80.20, premiumVsBenchmark: 0.00, tankerAvailability: "high",
-    transitDays: 9, refineryCompatibilityScore: 95,
-    rationale: "Red Sea suspension does not affect Hormuz/Indian Ocean routing for Saudi cargoes. Excellent compatibility. Standard pricing maintained.",
-  },
-  {
-    id: "p-rs-3", scenarioId: "redsea-suspension", overallRank: 3,
-    sourceName: "Russian ESPO Blend", region: "Russia / Far East", gradeType: "ESPO Blend",
-    pricePerBarrel: 72.80, premiumVsBenchmark: -7.40, tankerAvailability: "medium",
-    transitDays: 12, refineryCompatibilityScore: 82,
-    rationale: "ESPO route via Pacific unaffected by Red Sea events. Price discount significant. Fleet availability tracking needed.",
-  },
-  {
-    id: "p-rs-4", scenarioId: "redsea-suspension", overallRank: 4,
-    sourceName: "Iraqi Basrah Light", region: "Middle East", gradeType: "Basrah Light",
-    pricePerBarrel: 79.40, premiumVsBenchmark: -0.80, tankerAvailability: "high",
-    transitDays: 8, refineryCompatibilityScore: 91,
-    rationale: "Iraq exports via Basrah terminal route unaffected by Red Sea closure. High availability, excellent grade match.",
-  },
-  {
-    id: "p-rs-5", scenarioId: "redsea-suspension", overallRank: 5,
-    sourceName: "Domestic ONGC Crude", region: "India (Offshore)", gradeType: "Bombay High",
-    pricePerBarrel: 78.50, premiumVsBenchmark: -1.70, tankerAvailability: "high",
-    transitDays: 2, refineryCompatibilityScore: 72,
-    rationale: "Domestic production fully insulated from Red Sea disruption. Strategic buffer.",
-  },
-];
+    // Price rises with exposure to the disrupted corridor + duration pressure
+    const pricePerBarrel = round2(src.basePricePerBarrel * (1 + effectiveDisruption * 0.35 + inputs.durationDays * effectiveDisruption * 0.01));
+    const premiumVsBenchmark = round2(pricePerBarrel - 80.30); // vs fixed Brent-ish benchmark
+    const transitDays = Math.round(src.baseTransitDays * (1 + effectiveDisruption * 0.5));
+    const tankerAvailability: "high" | "medium" | "low" =
+      effectiveDisruption > 0.5 ? "low" : effectiveDisruption > 0.15 ? "medium" : "high";
+
+    // Composite score: lower exposure, higher compatibility, lower transit, lower price = better
+    const score =
+      (100 - effectiveDisruption * 100) * 0.4 +
+      src.refineryCompatibilityScore * 0.3 +
+      (100 - Math.min(transitDays, 60) * 1.5) * 0.15 +
+      (100 - Math.min(pricePerBarrel - 70, 30) * 3) * 0.15;
+
+    return {
+      id: src.id, sourceName: src.sourceName, region: src.region, gradeType: src.gradeType,
+      pricePerBarrel, premiumVsBenchmark, tankerAvailability, transitDays,
+      refineryCompatibilityScore: src.refineryCompatibilityScore,
+      overallRank: 0, // set after sort
+      rationale: src.rationaleTemplate,
+      _score: score,
+    };
+  });
+
+  scored.sort((a, b) => b._score - a._score);
+  return scored.map((s, i) => {
+    const { _score, ...rest } = s;
+    return { ...rest, overallRank: i + 1 };
+  });
+}
+
+function round2(n: number): number { return Math.round(n * 100) / 100; }
+
+// ─── Preset Scenario Inputs (shared by scenarios + recommendations routes) ────
+export const PRESET_INPUTS: Record<string, ScenarioInputs> = {
+  "hormuz-closure":     { disruptionPercent: 50, affectedCorridor: "hormuz",       durationDays: 14 },
+  "opec-emergency-cut": { disruptionPercent: 38, affectedCorridor: "persian_gulf", durationDays: 10 },
+  "redsea-suspension":  { disruptionPercent: 42, affectedCorridor: "redsea",       durationDays: 16 },
+};
 
 // ─── Reserve Baseline ─────────────────────────────────────────────────────────
 export function getReserveStatus(disruptionDays = 15): {

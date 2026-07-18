@@ -1,0 +1,131 @@
+I need to replace the static overallRank and hardcoded pricing fields in procurementOptions with values computed at request time, driven by scenario inputs. Keep all existing sourceName, region, gradeType, and rationale text exactly as-is — that data is good. Only the numeric fields need to become dynamic.
+File: artifacts/api-server/src/mockData.ts
+
+Restructure procurementOptions into a static source catalog (one entry per unique source, not per scenario) with a new corridorExposure field describing how exposed that source's route is to each corridor (0 = unaffected, 1 = fully exposed):
+
+typescriptexport interface ProcurementSource {
+  id: string;
+  sourceName: string;
+  region: string;
+  gradeType: string;
+  basePricePerBarrel: number;      // baseline unaffected price
+  baseTransitDays: number;
+  refineryCompatibilityScore: number;
+  corridorExposure: Record<"hormuz" | "redsea" | "persian_gulf", number>; // 0-1
+  rationaleTemplate: string;       // keep existing rationale text, parameterize if useful
+}
+
+export const procurementSources: ProcurementSource[] = [
+  {
+    id: "us-wti", sourceName: "US Gulf Coast WTI", region: "North America", gradeType: "WTI Light Sweet",
+    basePricePerBarrel: 82.00, baseTransitDays: 42, refineryCompatibilityScore: 78,
+    corridorExposure: { hormuz: 0, redsea: 0, persian_gulf: 0 },
+    rationaleTemplate: "Zero exposure to Middle East corridor disruptions. US export infrastructure fully operational.",
+  },
+  {
+    id: "bonny-light", sourceName: "West African Bonny Light", region: "West Africa", gradeType: "Bonny Light",
+    basePricePerBarrel: 80.50, baseTransitDays: 21, refineryCompatibilityScore: 89,
+    corridorExposure: { hormuz: 0, redsea: 0.15, persian_gulf: 0 },
+    rationaleTemplate: "Excellent refinery compatibility with Indian FCCU configuration. Largely insulated from Middle East chokepoints.",
+  },
+  {
+    id: "espo-blend", sourceName: "Russian ESPO Blend", region: "Russia / Far East", gradeType: "ESPO Blend",
+    basePricePerBarrel: 79.80, baseTransitDays: 12, refineryCompatibilityScore: 82,
+    corridorExposure: { hormuz: 0.1, redsea: 0, persian_gulf: 0.1 },
+    rationaleTemplate: "Pacific routing largely bypasses Middle East chokepoints. Discount reflects secondary sanctions risk, not physical exposure.",
+  },
+  {
+    id: "saudi-light", sourceName: "Saudi Arabian Light", region: "Middle East", gradeType: "Arab Light",
+    basePricePerBarrel: 80.20, baseTransitDays: 18, refineryCompatibilityScore: 95,
+    corridorExposure: { hormuz: 0.85, redsea: 0.2, persian_gulf: 0.9 },
+    rationaleTemplate: "Overland pipeline bypass to Yanbu (7.5Mbpd) reduces but does not eliminate Hormuz dependency. Near-perfect refinery compatibility.",
+  },
+  {
+    id: "iraqi-basrah", sourceName: "Iraqi Basrah Light", region: "Middle East", gradeType: "Basrah Light",
+    basePricePerBarrel: 79.40, baseTransitDays: 8, refineryCompatibilityScore: 91,
+    corridorExposure: { hormuz: 0.9, redsea: 0.1, persian_gulf: 0.95 },
+    rationaleTemplate: "High-quality grade match but Basrah terminal exports transit Hormuz directly.",
+  },
+  {
+    id: "brazilian-presalt", sourceName: "Brazilian Pre-salt", region: "South America", gradeType: "Tupi Blend",
+    basePricePerBarrel: 82.80, baseTransitDays: 28, refineryCompatibilityScore: 76,
+    corridorExposure: { hormuz: 0, redsea: 0, persian_gulf: 0 },
+    rationaleTemplate: "Deep-water Atlantic routing, zero Middle East corridor exposure. Long transit is primary downside.",
+  },
+  {
+    id: "ongc-domestic", sourceName: "Domestic ONGC Crude", region: "India (Offshore)", gradeType: "Bombay High",
+    basePricePerBarrel: 78.50, baseTransitDays: 2, refineryCompatibilityScore: 72,
+    corridorExposure: { hormuz: 0, redsea: 0, persian_gulf: 0 },
+    rationaleTemplate: "Zero transit risk. Max output ~820kbpd — insufficient as standalone source but immune to all corridor disruption.",
+  },
+];
+
+Add a scoring function that takes the same ScenarioInputs from the scenarios fix and computes live ProcurementOption[]:
+
+typescriptexport interface ProcurementOption {
+  id: string; sourceName: string; region: string; gradeType: string;
+  pricePerBarrel: number; premiumVsBenchmark: number;
+  tankerAvailability: "high" | "medium" | "low";
+  transitDays: number; refineryCompatibilityScore: number;
+  overallRank: number; rationale: string;
+}
+
+export function computeProcurementOptions(inputs: ScenarioInputs): ProcurementOption[] {
+  const disruptionFactor = inputs.disruptionPercent / 100;
+
+  const scored = procurementSources.map((src) => {
+    const exposure = src.corridorExposure[inputs.affectedCorridor];
+    const effectiveDisruption = exposure * disruptionFactor;
+
+    // Price rises with exposure to the disrupted corridor + duration pressure
+    const pricePerBarrel = round2(src.basePricePerBarrel * (1 + effectiveDisruption * 0.35 + inputs.durationDays * effectiveDisruption * 0.01));
+    const premiumVsBenchmark = round2(pricePerBarrel - 80.30); // vs a fixed Brent-ish benchmark
+    const transitDays = Math.round(src.baseTransitDays * (1 + effectiveDisruption * 0.5));
+    const tankerAvailability: "high" | "medium" | "low" =
+      effectiveDisruption > 0.5 ? "low" : effectiveDisruption > 0.15 ? "medium" : "high";
+
+    // Composite score: lower price, lower exposure, lower transit, higher compatibility = better
+    // Normalize roughly to 0-100 scale, weight compatibility and exposure highest
+    const score =
+      (100 - effectiveDisruption * 100) * 0.4 +
+      src.refineryCompatibilityScore * 0.3 +
+      (100 - Math.min(transitDays, 60) * 1.5) * 0.15 +
+      (100 - Math.min(pricePerBarrel - 70, 30) * 3) * 0.15;
+
+    return {
+      id: src.id, sourceName: src.sourceName, region: src.region, gradeType: src.gradeType,
+      pricePerBarrel, premiumVsBenchmark, tankerAvailability, transitDays,
+      refineryCompatibilityScore: src.refineryCompatibilityScore,
+      overallRank: 0, // set after sort
+      rationale: src.rationaleTemplate,
+      _score: score,
+    };
+  });
+
+  scored.sort((a, b) => b._score - a._score);
+  return scored.map((s, i) => {
+    const { _score, ...rest } = s;
+    return { ...rest, overallRank: i + 1 };
+  });
+}
+
+function round2(n: number): number { return Math.round(n * 100) / 100; }
+
+Sanity-check against the original data: run computeProcurementOptions({disruptionPercent: 50, affectedCorridor: "hormuz", durationDays: 14}) and confirm US WTI, Bonny Light, and domestic ONGC rank near the top (low/no Hormuz exposure) while Saudi Light and Iraqi Basrah rank lower (high Hormuz exposure) — this should roughly match the original hand-authored Hormuz-closure ranking's logic, even if exact numbers differ. Print the output so I can review it.
+
+File: artifacts/api-server/src/routes/recommendations.ts
+
+Replace the static-filter route with one that calls the new function using the same scenario-resolution logic as the fixed scenarios.ts route (preset ID → lookup inputs, or custom → inputs from request body):
+
+typescriptrouter.post("/recommendations/custom", (req, res) => {
+  const { disruptionPercent, affectedCorridor, durationDays } = req.body;
+  if (typeof disruptionPercent !== "number" || typeof durationDays !== "number" ||
+      !["hormuz", "redsea", "persian_gulf"].includes(affectedCorridor)) {
+    res.status(400).json({ error: "Invalid input" });
+    return;
+  }
+  const options = computeProcurementOptions({ disruptionPercent, affectedCorridor, durationDays });
+  res.json(options);
+});
+Keep the existing GET /recommendations/:scenarioId route working for the 3 presets by resolving their ID to inputs first, then calling computeProcurementOptions — do not leave the old static-array filter path in place anywhere.
+Show me the printed comparison output from step 3 before wiring the frontend to the new route.

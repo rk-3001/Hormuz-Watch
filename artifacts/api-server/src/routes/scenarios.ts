@@ -1,21 +1,13 @@
 import { Router } from "express";
-import { scenarios, computeScenarioResult, type ScenarioInputs } from "../mockData";
+import { scenarios, computeScenarioResult, PRESET_INPUTS, type ScenarioInputs } from "../mockData";
 
 const router = Router();
-
-// Preset scenario ID → parametric inputs
-// Inputs chosen so computeScenarioResult reproduces the original hand-authored values within ~10-15%.
-const PRESET_INPUTS: Record<string, ScenarioInputs> = {
-  "hormuz-closure":     { disruptionPercent: 50,  affectedCorridor: "hormuz",       durationDays: 14 },
-  "opec-emergency-cut": { disruptionPercent: 38,  affectedCorridor: "persian_gulf", durationDays: 10 },
-  "redsea-suspension":  { disruptionPercent: 42,  affectedCorridor: "redsea",       durationDays: 16 },
-};
 
 router.get("/scenarios", (_req, res) => {
   res.json(scenarios);
 });
 
-// Custom scenario — arbitrary inputs
+// POST /scenarios/custom/run — arbitrary inputs
 router.post("/scenarios/custom/run", (req, res) => {
   const { disruptionPercent, affectedCorridor, durationDays } = req.body as Partial<ScenarioInputs>;
   if (
@@ -28,11 +20,15 @@ router.post("/scenarios/custom/run", (req, res) => {
     });
     return;
   }
-  const result = computeScenarioResult({ disruptionPercent, affectedCorridor: affectedCorridor as ScenarioInputs["affectedCorridor"], durationDays });
+  const result = computeScenarioResult({
+    disruptionPercent,
+    affectedCorridor: affectedCorridor as ScenarioInputs["affectedCorridor"],
+    durationDays,
+  });
   res.json(result);
 });
 
-// Preset scenario by ID
+// POST /scenarios/:id/run — preset scenario IDs
 router.post("/scenarios/:id/run", (req, res) => {
   const { id } = req.params;
   const scenario = scenarios.find((s) => s.id === id);
@@ -46,7 +42,6 @@ router.post("/scenarios/:id/run", (req, res) => {
     return;
   }
   const result = computeScenarioResult(inputs);
-  // Override scenarioId/scenarioName to match the preset's display identity
   res.json({ ...result, scenarioId: id, scenarioName: scenario.name });
 });
 
