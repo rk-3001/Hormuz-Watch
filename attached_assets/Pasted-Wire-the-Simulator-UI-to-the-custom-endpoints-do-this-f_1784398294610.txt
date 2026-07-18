@@ -1,0 +1,21 @@
+Wire the Simulator UI to the custom endpoints (do this first):
+I need to add a custom scenario input mode to my existing Simulator page, alongside the 3 existing presets. Do not remove the presets.
+File: artifacts/hormuzwatch/src/pages/Simulator (or wherever this page lives)
+
+Add a toggle/tab at the top of the page: "Preset Scenarios" vs "Custom Scenario". Preset mode keeps existing behavior exactly as-is.
+In Custom mode, add three inputs:
+
+disruptionPercent: a slider, 0-100, default 50, label "Disruption Severity (%)"
+affectedCorridor: a select/dropdown with options hormuz (label "Strait of Hormuz"), redsea (label "Red Sea / Bab-el-Mandeb"), persian_gulf (label "Persian Gulf")
+durationDays: a slider, 1-30, default 14, label "Assumed Duration (days)"
+
+
+On submit, call POST /api/scenarios/custom/run with { disruptionPercent, affectedCorridor, durationDays } in the body. Reuse the existing "running simulation" loading animation (Framer Motion skeleton, ~1.5s) and existing result-rendering components (the 4 stat cards + chart) — the response shape from /scenarios/custom/run matches the preset response shape, so no new rendering components should be needed, just pass the new data into the existing ones.
+After the scenario result renders, automatically call POST /api/recommendations/custom with the same three inputs, and render the result using the existing Procurement Recommendations table/card component (either inline on this page below the scenario result, or navigate to /recommendations and pass the custom result via route state / a shared query cache key — pick whichever fits the existing React Query setup with minimal new code).
+Add a "Model Assumptions" collapsible panel (use the existing shadcn/ui Accordion or Collapsible component) visible in both Preset and Custom mode, showing:
+
+The corridor exposure value used for each of the 7 procurement sources for the currently selected/active corridor (e.g. "Saudi Arabian Light — 85% of route capacity transits this corridor")
+A one-line note: "Price and availability projections are calculated from corridor exposure, disruption severity, and duration using a calibrated linear model — not live market data."
+
+Fetch this from a new lightweight endpoint GET /api/scenarios/assumptions (add this route + a procurementSources.map(s => ({sourceName: s.sourceName, exposureByCorridor: s.corridorExposure})) handler in the backend if it doesn't exist yet) rather than hardcoding it in the frontend, so it stays in sync if the backend model changes.
+Confirm in the browser: switch to Custom mode, set disruption to 80%, corridor to redsea, duration to 20 days, submit, and verify the stat cards, chart, and recommendations table all update with values different from any of the 3 presets, and that the Model Assumptions panel shows the Red Sea exposure numbers.

@@ -1,10 +1,23 @@
 import { Router } from "express";
-import { scenarios, computeScenarioResult, PRESET_INPUTS, type ScenarioInputs } from "../mockData";
+import { scenarios, computeScenarioResult, PRESET_INPUTS, procurementSources, type ScenarioInputs } from "../mockData";
 
 const router = Router();
 
 router.get("/scenarios", (_req, res) => {
   res.json(scenarios);
+});
+
+// GET /scenarios/assumptions — source catalog with corridor exposure, for the frontend model panel
+router.get("/scenarios/assumptions", (_req, res) => {
+  const assumptions = procurementSources.map((s) => ({
+    sourceName: s.sourceName,
+    region: s.region,
+    exposureByCorridor: s.corridorExposure,
+  }));
+  res.json({
+    sources: assumptions,
+    note: "Price and availability projections are calculated from corridor exposure, disruption severity, and duration using a calibrated linear model — not live market data.",
+  });
 });
 
 // POST /scenarios/custom/run — arbitrary inputs
