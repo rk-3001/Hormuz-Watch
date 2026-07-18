@@ -1,0 +1,27 @@
+I need a status report on four parts of the app I haven't reviewed recently. Do not make any code changes — just investigate and report back with the actual file contents and behavior for each item below.
+1. AI Assistant chat panel (artifacts/api-server/src/routes/anthropic/ + whatever frontend component renders it, likely components/ai-assistant)
+
+Paste the full contents of the route handler(s) under routes/anthropic/.
+Does the system prompt sent to the model include any live dashboard state (current risk scores, active scenario, top recommendation), or is it a generic chatbot with no grounding in the app's actual data?
+If it does include live state, show exactly which fields get pulled in and from where.
+Paste the frontend component that renders this chat panel — confirm where it's accessible from (persistent drawer? separate page? only on one page?).
+
+2. Map page (pages/Map or equivalent)
+
+Is this using real React-Leaflet with markers, or is it a static image/placeholder?
+Are the chokepoint/vessel markers hardcoded coordinates, or pulled from any backend data (even mock)?
+Clicking a marker — does it show a popup with real data (risk score, corridor name) or nothing/placeholder text?
+Does anything on this page respond to the current scenario state (e.g. does the map re-color when a Hormuz scenario is active), or is it entirely static regardless of what's happening elsewhere in the app?
+
+3. Reserve Planner page (pages/Reserves or equivalent)
+
+Is the SPR days-of-cover chart reading from real computed data (ideally tied to computeScenarioResult's sprDaysRemaining) or from a separate hardcoded mock value?
+Does the duration slider on this page actually recompute anything, or is the chart static regardless of slider position?
+Is this page connected in any way to the scenario a user just ran on the Simulator/Command Center, or is it fully independent?
+
+4. Response Timeline / Audit Log
+
+Does this feature exist in the current build at all? If yes, where (which page/component)?
+Does it log real events as they happen (e.g. "scenario run at [timestamp]", "interpret called at [timestamp]"), or is it hardcoded sample log entries that never change?
+
+For each of the four sections above, give me a clear one-line verdict at the top: "REAL — connected to live data" or "MOCK — static/placeholder, not connected to anything." Then the supporting code/detail below it.
