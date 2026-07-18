@@ -1,0 +1,27 @@
+Add a free-text natural language input to the Command Center (Home) page that lets a user describe a disruption scenario in plain English and get the same scenario + recommendation output as Custom mode on the Simulator page.
+File: artifacts/api-server/src/routes/assistant (or a new route file, your call — keep it separate from the existing conversation CRUD routes)
+
+Add POST /api/scenarios/interpret that takes { text: string } and calls the Anthropic API with a system prompt instructing it to extract exactly three values and return only JSON, no prose, no markdown fences:
+
+   {"disruptionPercent": number 0-100, "affectedCorridor": "hormuz"|"redsea"|"persian_gulf", "durationDays": number 1-60, "confidence": "high"|"medium"|"low", "interpretation": "one sentence restating what you understood"}
+Include 2-3 few-shot examples in the system prompt, e.g.:
+
+"Iran threatens to close Hormuz for two weeks" → {disruptionPercent: 90, affectedCorridor: "hormuz", durationDays: 14, confidence: "high", interpretation: "..."}
+"Houthi attacks disrupt some Red Sea shipping" → {disruptionPercent: 40, affectedCorridor: "redsea", durationDays: 10, confidence: "medium", interpretation: "..."}
+If the text doesn't clearly describe a supply disruption (e.g. "what's the weather"), return confidence: "low" with defaults {disruptionPercent: 30, affectedCorridor: "hormuz", durationDays: 7} rather than erroring.
+
+
+Parse the response as JSON, strip code fences if present, validate disruptionPercent/durationDays are numbers in range and affectedCorridor is one of the three valid values. If parsing or validation fails, return HTTP 422 with {error: "Could not interpret scenario"} — do not let malformed LLM output crash the route or reach the frontend as invalid data.
+
+File: artifacts/hormuzwatch/src/pages/CommandCenter (or Home page)
+
+Add a text input + submit button near the top: placeholder "Describe a disruption scenario, e.g. 'Iran threatens to close Hormuz for two weeks'". On submit:
+
+Call POST /api/scenarios/interpret
+Render the returned interpretation sentence plus a confidence badge (green=high, amber=medium, red=low)
+Do NOT auto-execute the scenario yet — show the extracted disruptionPercent/affectedCorridor/durationDays pre-filled into the same slider/dropdown Custom-mode inputs already built on the Simulator page (reuse that component if possible, or navigate to /simulate?mode=custom with the values passed via route state/query params, pre-filled and editable)
+Show a "Run this scenario" button that, on click, calls the existing /scenarios/custom/run and /recommendations/custom endpoints exactly as Custom mode already does
+
+
+If confidence is "low", show a visible inline warning above the pre-filled sliders: "Low confidence in this interpretation — please review the values below before running."
+Reuse the existing Model Assumptions panel and result-rendering components from the Simulator page — no new chart/table components should be needed here.

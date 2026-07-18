@@ -8,6 +8,7 @@ import reservesRouter from "./reserves";
 import timelineRouter from "./timeline";
 import assistantRouter from "./assistant";
 import anthropicRouter from "./anthropic/index";
+import interpretRouter from "./interpret";
 
 const router: IRouter = Router();
 
@@ -19,6 +20,7 @@ router.use(recommendationsRouter);
 router.use(reservesRouter);
 router.use(timelineRouter);
 router.use(assistantRouter);
+router.use(interpretRouter);
 router.use("/anthropic", anthropicRouter);
 
 export default router;
